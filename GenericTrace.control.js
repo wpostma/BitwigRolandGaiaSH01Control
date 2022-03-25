@@ -1,9 +1,9 @@
-// Line6 Pod XT Script : Warren Postma : warren.postma@gmail.com 
-// (Don"t expect support by email.  You want to ask a question ask on the KVR forums.)
+// Generic Trace Controller Script by Warren Postma : warren.postma@gmail.com 
+// (Don"t expect support by email.  You want to ask a question ask on the bitwig discord.)
 
 loadAPI(14); // Bitwig 4.0.1+
 
-println("PODXTLive 1.0.1. trace=0 : debug output off,  trace=1 : tracing on,  trace=2 full tracing ");
+println("GenricTrace. Type trace=0 to turn trace output off,  trace=1 : tracing on,  trace=2 full tracing ");
 
 // host.setShouldFailOnDeprecatedUse(true);
 
@@ -12,7 +12,7 @@ var trace = 2;
 load ("Extensions.js");
 
 
-host.defineController("Line6", "PodXTLive", "1.0", "3937b2bc-23da-45c1-8eb0-5f83a30f3e53", "wpostma");
+host.defineController("GenericTrace", "GenericTrace", "1.0", "c937b2bc-23da-45c1-8eb0-5f83a30f3e53", "wpostma");
 
 host.defineMidiPorts(1, 1);
 
@@ -44,26 +44,22 @@ var cc_knob_04 = 16; // hi mid knob in the amp tone controls
 var cc_knob_05 = 21; // treble knob in the amp tone controls
 var cc_knob_06 = 17; // channel volume knob in the amp tone controls
 
-// switches:  Turn on and off. 0=off,127=on
+// this stuff is NOT generic it's the CC maps for a specific device, and is left in here as sample code.
+// for a real controller begin by defining the CCs used by various buttons.
 var cc_switch_amp_on_off	= 111;
 var cc_switch_stomp_on_off	= 25;
 var cc_switch_mod_on_off	= 50;
 var cc_switch_delay_on_off	= 28;
-
-// preset buttons (A,B,C,D) come in as program control
-// not as CC!
-
-// momentary:
 var cc_momentary_tap  		= 64;
 
 // program change stuff
 var program = 1;
 var bank = 1;
 
+
+// housekeeping and stats
 var callcount  = 0;
 var last_cc = 0;
-
-
 
 
 function showPopupNotification(msg) {
@@ -90,7 +86,7 @@ function init()
    masterTrack = host.createMasterTrackSection(0);
    trackBank = host.createTrackBankSection(8, 4, 99); // this trackbank is probably the first 8 tracks but who the fuck knows with the vague ass documentation bitwig devs provide.
    transport = host.createTransportSection();
-   keys = host.getMidiInPort(0).createNoteInput("PodXTLive Keys", "80????", "90????", "B001??", "B002??", "B007??", "B00B??", "B040??", "C0????", "D0????", "E0????");
+   keys = host.getMidiInPort(0).createNoteInput("GenericTrace Keys", "80????", "90????", "B001??", "B002??", "B007??", "B00B??", "B040??", "C0????", "D0????", "E0????");
    keys.setShouldConsumeEvents(false);
    sceneBank = host.createSceneBank(8);
 
@@ -103,6 +99,8 @@ function init()
    //cursorTrack.selectPrevious();
    //cursorTrack.selectNext();
    
+   // to have knobs on your controller you must get the controls and sometimes you have to register interest in things in init
+
    uControl = host.createUserControls(6); // 0-5 : knobs. 
    for (var i = 0; i < 6; i++) {
       uControl.getControl(i).setLabel("Knob "+(i+1))
@@ -141,6 +139,7 @@ function init()
    
 
    try {
+      // these can become deprecated over time.
       host.getNotificationSettings().setShouldShowSelectionNotifications (true);
       host.getNotificationSettings().setShouldShowChannelSelectionNotifications (true);
       host.getNotificationSettings().setShouldShowTrackSelectionNotifications (true);
@@ -156,10 +155,13 @@ function init()
    host.scheduleTask(pollState, null, 500);
 }
 
+// This bit is definitely not generic.  If your device can be polled, see its sysex midi spec to find out how
 function pollState() {
-   sendSysex("F0 00 20 6B 7F 42 01 00 00 2F F7");
+   //sendSysex("F0 00 20 6B 7F 42 01 00 00 2F F7");
 }
 
+
+// this little helper function is meant to make launching a clip or scene easy.
 function playclipat(row, column) {
   if (row<0) {
     row = 0;
@@ -354,268 +356,51 @@ function onOff(dvalue) {
   }
 }
 
+function pad(num, size) {
+   num = num.toString();
+   while (num.length < size) num = "0" + num;
+   return num;
+}
 function onMidi(status, data1, data2) {
 
   callcount = callcount +1;
 
     // Instantiate the MidiData Object for convenience:
    var midi = new MidiData(status, data1, data2);
+   var msgtype = "?";
+   
 
-if (trace>0) {
-  println("onmidi "+callcount+" --> "+status+","+midi.data1+","+midi.data2);
-   if (midi.isChannelController()) {
-   	
-	if (midi.data1==cc_switch_amp_on_off) {
-   	  println("F1:AMP "+midi.data1+" "+onOff(midi.data2))
-	}
-	else if (midi.data1==cc_switch_stomp_on_off) {
-   	  println("F2:STOMP "+midi.data1+" "+onOff(midi.data2))
-	}
-	else if (midi.data1==cc_switch_mod_on_off) {
-   	  println("F3:MOD "+midi.data1+" "+onOff(midi.data2))
-	}else if (midi.data1==cc_switch_delay_on_off) {
-   	  println("F4: AMP "+midi.data1+" "+onOff(midi.data2))
-	}
-	else if (midi.data1==cc_momentary_tap) {
-	  println("F5:TAP "+midi.data1+" "+midi.data2)
-		
-	}
-	
-	else if (midi.data1==cc_knob_01) {
-	  println("K1:drive knob: "+midi.data1+" "+midi.data2);
-	}
-	else if (midi.data1==cc_knob_02) {
-	  println("K2:bass knob: "+midi.data1+" "+midi.data2);
-	}
-	else if (midi.data1==cc_knob_03) {
-	  println("K3:lo mid knob: "+midi.data1+" "+midi.data2);
-	}
-	else if (midi.data1==cc_knob_04) {
-	  println("K4:hi mid knob: "+midi.data1+" "+midi.data2);
-	}	
-	else if (midi.data1==cc_knob_05) {
-	  println("K5:treble knob: "+midi.data1+" "+midi.data2);
-	}	
-	else if (midi.data1==cc_knob_06) {
-	  println("K6:channel vol knob: "+midi.data1+" "+midi.data2);
-	}	
+   if (trace>0) {
 
-
-	else
-	{
-		println("Other CC#"+midi.data1+" with data value "+midi.data2)
-	}
-
-
-
+      if (midi.isChannelController()) {
+         msgtype = "CC";
+      } else if (midi.isNoteOn()) {
+         msgtype = "NOTE ON "+midi.note();
+      } else if (midi.isNoteOff()) {
+         msgtype = "NOTE OFF "+midi.note();
+      } else if (midi.isKeyPressure()){
+         msgtype = "POLY AFTERTOUCH";
+      }
+   
+     println("MIDI MESSAGE #"+pad(callcount,6)+" CHANNEL "+midi.channel()+" --> "+status+"("+msgtype+")  :  data1="+midi.data1+", data2="+midi.data2);
    }
-   else if (midi.isNoteOn()) {
-	println("note on "+midi.data1+" "+midi.data2)
-   } 
-   else if (midi.isNoteOff()) {
-	println("note off "+midi.data1+" "+midi.data2)
-   }
-   else if (midi.isProgramChange()) {
-	   println("program change "+midi.data1+" "+midi.data2)
-   }
+
+   // if (midi.isChannelController()) {
+	// if (midi.data1==cc_switch_amp_on_off) {
+   // 	  println("F1:AMP "+midi.data1+" "+onOff(midi.data2)) 
+   //      DO SOMETHING.
+	// }
+   // }
+
 }// end cc trace
 
-
-if (midi.isChannelController()) {
-
-  if (midi.data1 ==cc_switch_amp_on_off) {
-        //F1 functions
-      if (last_cc != -1) {
-        do_function(1, bank, midi.data2);
-      }
-  }
-  else if (midi.data1 ==cc_switch_stomp_on_off) {
-        //F2 functions
-      do_function(2, bank, midi.data2);
-  }
-  else if (midi.data1 ==cc_switch_mod_on_off) {
-        //F3 functions
-      do_function(3, bank, midi.data2);
-  }
-  else if (midi.data1 ==cc_switch_delay_on_off) {
-        //F4 functions
-      do_function(4, bank, midi.data2);
-  }
-  else if (midi.data1 ==cc_momentary_tap) {
-      //F5 functions [momentary]
-      do_function(5, bank, 0);
-      
-  }
-  else if (midi.data1 ==cc_knob_01) {
-      //println("K1:drive knob: "+midi.data1+" "+midi.data2)
-      keys.sendRawMidiEvent(midi.status, midi.data1, midi.data2);
-  }
-  else if (midi.data1=cc_knob_02) {
-      //println("K2:bass knob: "+midi.data1+" "+midi.data2)
-      keys.sendRawMidiEvent(midi.status, midi.data1, midi.data2);
-  }
-  else if (midi.data1=cc_knob_03) {
-      //println("K3:lo mid knob: "+midi.data1+" "+midi.data2)
-      keys.sendRawMidiEvent(midi.status, midi.data1, midi.data2);
-  }
-  else if (midi.data1=cc_knob_04) 
-  {
-      //println("K4:hi mid knob: "+midi.data1+" "+midi.data2)
-      keys.sendRawMidiEvent(midi.status, midi.data1, midi.data2);
-  }	
-  else if (midi.data1=cc_knob_05) 
-  {
-      //println("K5:treble knob: "+midi.data1+" "+midi.data2)
-      keys.sendRawMidiEvent(midi.status, midi.data1, midi.data2);
-  }	
-  else if (midi.data1=cc_knob_06) {
-      //println("K6:channel vol knob: "+midi.data1+" "+midi.data2)
-      keys.sendRawMidiEvent(midi.status, midi.data1, midi.data2);
-  }	
-  else if (midi.data1=cc_volume_pedal) {
-    //println("vol pedal cc7");
-    keys.sendRawMidiEvent(midi.status, midi.data1, midi.data2);
-  }	  
-  else
-  {
-      //println("Other CC: "+midi.data1+" "+midi.data2)
-  }
-  last_cc = midi.data1;
-
-}
-else if (midi.isProgramChange()) {
-     // TODO PROGRAM CHANGE.
-	 program= midi.data1;	
-   bank = 1+Math.floor( program / 4 );
-
-   
-   // get A,B,C,D buttons as the variable bankfunction
-   bankfunction = program % 4;
-   if (bankfunction==0) {
-     bankfunction = 4; 
-   }
-   if (trace>1) {
-  	  println(" :: program = "+program );
-      println(" :: bank = "+ bank );
-      println(" :: bankfunction = "+ bankfunction );	 
-      println(" :: PC may be immediately followed by a spurious CC :: ");
-   }
-   
-   last_cc = -1;
-  
-   // on the current track, bankfunction 1 should select the first clip track, bankfunction 2 should select the second clip track. 
-
-	 
-   }
-
-}
 
 function onSysex(data) {
    printSysex(data);
    println("sysex:"+data);
 }
 
-/*
-function knobFunc(Row, index, midi) {
-   var inc = (midi.data2 - 64) * 0.1;
-   //println(inc);
-   switch (Mode) {
-      case "Track":
-         if (SubMode === "VolPan") {
-            if (Row === 1) {
-               tracks.getTrack(index).getVolume().inc(inc, 256);
-            }
-            else {
-               tracks.getTrack(index).getPan().inc(inc, 128);
-            }
-         }
-         else {
-            if (Row === 1) {
-               tracks.getTrack(index).getSend(0).inc(inc, 128);
-            }
-            else {
-               tracks.getTrack(index).getSend(1).inc(inc, 128);
-            }
-         }
-         break;
-      case "Device":
-         if (Row === 1) {
-            cDevice.getMacro(index).getAmount().inc(inc, 128);
-         }
-         else {
-            cDevice.getCommonParameter(index).inc(inc, 128);
-         }
-         break;
-      case "Preset":
-         if (Row === 1) {
-            cDevice.getEnvelopeParameter(index).inc(inc, 128);
-         }
-         else {
-            cDevice.getParameter(index).inc(inc, 128);
-         }
-         break;
-      case "Arturia":
-         MiniLabKeys.sendRawMidiEvent(midi.status, midi.data1, midi.data2);
-         if (Row === 1) {
-            uControl.getControl(index).inc(inc, 128);
-         }
-         else {
-            uControl.getControl(index + 8).inc(inc, 128);
-         }
 
-         break;
-   }
-}
-*/
-
-/*
-function setIndications() {
-   var track = false;
-   var send = false;
-   var device = false;
-   var preset = false;
-   var arturia = false;
-   switch (Mode) {
-      case "Track":
-         if (SubMode === "VolPan") {
-            track = true;
-            //sendSysex("F0 00 20 6B 7F 42 02 00 10 78 01 F7");
-            //sendSysex("F0 00 20 6B 7F 42 02 00 10 7C 01 F7");
-         }
-         else {
-            send = true;
-            //sendSysex("F0 00 20 6B 7F 42 02 00 10 78 01 F7");
-            //sendSysex("F0 00 20 6B 7F 42 02 00 10 7D 01 F7");
-         }
-         break;
-      case "Device":
-         device = true;
-         //sendSysex("F0 00 20 6B 7F 42 02 00 10 79 01 F7");
-         break;
-      case "Preset":
-         preset = true;
-         //sendSysex("F0 00 20 6B 7F 42 02 00 10 7A 01 F7");
-         break;
-      case "Arturia":
-         arturia = true;
-         //sendSysex("F0 00 20 6B 7F 42 02 00 10 7B 01 F7");
-         break;
-   }
-   for (var i = 0; i < 8; i++) {
-      tracks.getTrack(i).getVolume().setIndication(track);
-      tracks.getTrack(i).getPan().setIndication(track);
-      tracks.getTrack(i).getSend(0).setIndication(send);
-      tracks.getTrack(i).getSend(1).setIndication(send);
-      cDevice.getMacro(i).getAmount().setIndication(device);
-      cDevice.getCommonParameter(i).setIndication(device);
-      cDevice.getEnvelopeParameter(i).setIndication(preset);
-      cDevice.getParameter(i).setIndication(preset);
-      uControl.getControl(i).setIndication(arturia);
-      uControl.getControl(i + 8).setIndication(arturia);
-   }
-
-}
-*/
 
 println("READY.")
 

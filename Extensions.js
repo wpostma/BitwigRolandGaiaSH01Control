@@ -113,8 +113,15 @@ MidiData.prototype = {
 
    // Notes:
    note: function() {
+      var octave = (Math.floor(this.data1 / 12) )-2;
+      return this.noteNames[this.data1 % 12]+octave ;
+   },
+
+   noteOnName: function() {
       return this.isNoteOn() ? this.noteNames[this.data1 % 12] : false;
    },
+
+
    octave: function() {
       return this.isNoteOn() ? Math.floor((this.data1 / 12) - 2) : false;
    },

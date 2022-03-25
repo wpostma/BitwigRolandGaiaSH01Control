@@ -9,9 +9,9 @@ MidiData.prototype = {
    // Note Name Array:
    noteNames: ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"],
 
-   // Midi Channel:
+   // Midi Channel: 1 based
    channel: function() {
-      return(this.status & 0xF);
+      return(this.status & 0xF)+1;
    },
 
    // Booleans for message type:

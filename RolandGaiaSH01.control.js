@@ -3,7 +3,7 @@
 
 loadAPI(14); // Bitwig 4.0.1+
 
-println("GenricTrace. Type trace=0 to turn trace output off,  trace=1 : tracing on,  trace=2 full tracing ");
+println("Roland GAIA SH-01 :v2: Type trace=0 to turn trace output off,  trace=1 : tracing on,  trace=2 full tracing ");
 
 // host.setShouldFailOnDeprecatedUse(true);
 
@@ -12,9 +12,11 @@ var trace = 2;
 load ("Extensions.js");
 
 
-host.defineController("GenericTrace", "GenericTrace", "1.0", "c937b2bc-23da-45c1-8eb0-5f83a30f3e53", "wpostma");
+host.defineController("Roland", "GAIA SH-01", "1.0", "ff37b2bc-23da-45c1-8eb0-5f83a30f3e53", "wpostma");
 
 host.defineMidiPorts(1, 1);
+
+host.addDeviceNameBasedDiscoveryPair(["SH-01"], ["SH-01"]);
 
 var clip_mode= false;
 
@@ -36,25 +38,15 @@ var autoplayscene = -1; // when >=0, and we press stop, in bank 2, start playing
 // global:
 var cc_volume_pedal 	= 7;
 
-// knobs:
-var cc_knob_01 = 13; // drive knob in the amp tone controls
-var cc_knob_02 = 14; // bass  knob in the amp tone controls
-var cc_knob_03 = 15; // lo mid knob in the amp tone controls
-var cc_knob_04 = 16; // hi mid knob in the amp tone controls
-var cc_knob_05 = 21; // treble knob in the amp tone controls
-var cc_knob_06 = 17; // channel volume knob in the amp tone controls
-
-// this stuff is NOT generic it's the CC maps for a specific device, and is left in here as sample code.
-// for a real controller begin by defining the CCs used by various buttons.
-var cc_switch_amp_on_off	= 111;
-var cc_switch_stomp_on_off	= 25;
-var cc_switch_mod_on_off	= 50;
-var cc_switch_delay_on_off	= 28;
-var cc_momentary_tap  		= 64;
-
+// cc constants (mostly placeholders)
+var cc_modulation_source = 177;
+var cc_mod_expression = 1;
+var cc_mod_dbeam	  = 102; // not sure.
 // program change stuff
 var program = 1;
 var bank = 1;
+
+var CC_MSG =  176; // + midi channel.
 
 
 // housekeeping and stats
@@ -86,8 +78,11 @@ function init()
    masterTrack = host.createMasterTrackSection(0);
    trackBank = host.createTrackBankSection(8, 4, 99); // this trackbank is probably the first 8 tracks but who the fuck knows with the vague ass documentation bitwig devs provide.
    transport = host.createTransportSection();
-   keys = host.getMidiInPort(0).createNoteInput("GenericTrace Keys", "80????", "90????", "B001??", "B002??", "B007??", "B00B??", "B040??", "C0????", "D0????", "E0????");
-   keys.setShouldConsumeEvents(false);
+   
+   keys = host.getMidiInPort(0).createNoteInput("SH-01 Keys", "8?????", "9?????", "B?01??", "B?02??", "B?07??", "B?0B??", "B?40??", "C?????", "D?????", "E?????", "F?????",  );
+   keys.setShouldConsumeEvents(false); // true here would inhibit the keys from passing through.
+   
+   
    sceneBank = host.createSceneBank(8);
 
 
@@ -356,6 +351,22 @@ function onOff(dvalue) {
   }
 }
 
+function SendCC(cc,value) {
+  if (value==undefined) 
+    return;
+  
+  if (trace>0) {
+  println("send Midi CC "+cc+" "+value);
+  }
+  if (value<0) {
+    value = 0;
+  }
+  if (value>127) {
+    value = 127;
+  }
+  keys.sendRawMidiEvent(CC_MSG, /*data1*/cc, /*data2*/value );
+}
+
 function pad(num, size) {
    num = num.toString();
    while (num.length < size) num = "0" + num;
@@ -369,10 +380,16 @@ function onMidi(status, data1, data2) {
    var midi = new MidiData(status, data1, data2);
    var msgtype = "?";
    
-
+ println("onmidi");
+ 
    if (trace>0) {
 
-      if (midi.isChannelController()) {
+   
+	  if (midi.isProgramChange()) {
+		msgtype = "PC"; // 0xC0:
+            
+	  }
+	  else if (midi.isChannelController()) {
          msgtype = "CC";
       } else if (midi.isNoteOn()) {
          msgtype = "NOTE ON "+midi.note();
@@ -380,16 +397,31 @@ function onMidi(status, data1, data2) {
          msgtype = "NOTE OFF "+midi.note();
       } else if (midi.isKeyPressure()){
          msgtype = "POLY AFTERTOUCH";
-      }
+      } else if (midi.isPitchBend()) {
+		  msgtype = "BEND";
+	  }
    
      println("MIDI MESSAGE #"+pad(callcount,6)+" CHANNEL "+midi.channel()+" --> "+status+"("+msgtype+")  :  data1="+midi.data1+", data2="+midi.data2);
    }
 
-   // if (midi.isChannelController()) {
-	// if (midi.data1==cc_switch_amp_on_off) {
-   // 	  println("F1:AMP "+midi.data1+" "+onOff(midi.data2)) 
-   //      DO SOMETHING.
-	// }
+    if (midi.isChannelController()) {
+        if (midi.data1==cc_mod_expression) {
+        
+          // ignore
+        }
+         else if (midi.data1>=  cc_mod_dbeam) {
+            // d-beam.
+            var avalue = Math.floor( (midi.data2 -68) * 1.96 );
+            if (avalue<2) {
+               avalue = 63; // kinda weird, return to center.
+            } else if (avalue>127) {
+              avalue = 127;
+            }
+            println("d-beam "+ avalue);
+            SendCC(33,avalue);
+        }
+          
+	 }
    // }
 
 }// end cc trace

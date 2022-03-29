@@ -66,6 +66,10 @@ MidiData.prototype = {
    isSystemReset: function() {
       return(this.status === 0xFF);
    },
+   isProgramChange: function() {
+      return((this.status & 0xC0)=== 0xC0); // PC
+   },
+      
 
    // Message Type
    type: function() {

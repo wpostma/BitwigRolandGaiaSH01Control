@@ -41,7 +41,9 @@ var cc_volume_pedal 	= 7;
 // cc constants (mostly placeholders)
 var cc_modulation_source = 177;
 var cc_mod_expression = 1;
-var cc_mod_dbeam	  = 102; // not sure.
+var cc_mod_cutoff	  = 103; // not sure of encoding
+var cc_mod_volume  = 11;
+var cc_mod_effect  = 12;
 // program change stuff
 var program = 1;
 var bank = 1;
@@ -356,7 +358,7 @@ function SendCC(cc,value) {
     return;
   
   if (trace>0) {
-  println("send Midi CC "+cc+" "+value);
+  println("Send Midi CC #"+cc+" : "+value);
   }
   if (value<0) {
     value = 0;
@@ -406,20 +408,46 @@ function onMidi(status, data1, data2) {
 
     if (midi.isChannelController()) {
         if (midi.data1==cc_mod_expression) {
-        
+         
           // ignore
         }
-         else if (midi.data1>=  cc_mod_dbeam) {
-            // d-beam.
+         else if (midi.data1 ===  cc_mod_cutoff) {
+            // d-beam inferred from filter cutoff.
+
             var avalue = Math.floor( (midi.data2 -68) * 1.96 );
             if (avalue<2) {
                avalue = 63; // kinda weird, return to center.
             } else if (avalue>127) {
               avalue = 127;
             }
-            println("d-beam "+ avalue);
+            println("d-beam effects assign: "+ avalue);
             SendCC(33,avalue);
+        } 
+        else if (midi.data1 === cc_mod_effect) {
+          var avalue = data2; //Math.floor( (midi.data2 -68) * 1.96 );
+          if (avalue<1) {
+             avalue = 63; // kinda weird, return to center.
+          } else if (avalue>=127) {
+            avalue = 63;
+          }
+          println("d-beam:effect mode: "+ avalue);
+          SendCC(34,avalue);
+        }        
+        else if (midi.data1 === cc_mod_volume) {
+          var avalue = data2; //Math.floor( (midi.data2 -68) * 1.96 );
+          if (avalue<1) {
+             avalue = 63; // kinda weird, return to center.
+          } else if (avalue>=127) {
+            avalue = 63;
+          }
+          println("d-beam:volume mode: "+ avalue);
+          SendCC(35,avalue);
         }
+        // else ... do stuff with the included CCs?
+        // cc 12,18,21,24,27,30,78,81,72,75,91,104,107,113,110,116?
+        // do stuff with the program change buttons A..H.
+        // (might be useful to have it select tracks so you can use it for live jam
+        // "preset==track" instrument/patch switching)
           
 	 }
    // }
